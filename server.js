@@ -14,7 +14,7 @@ app.post('/api/paypack/cashin', async (req, res) => {
 
     console.log(`Ubusabe bwakiriwe: Inomero ${number}, Amafaranga ${amount} FRW`);
 
-    return.status(200).json({ 
+    return res.status(200).json({ 
         success: true, 
         message: "Prompt ya MTN MoMo yoherejwe kuri telefone yawe neza!" 
     });
