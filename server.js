@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 
 const app = express();
 app.use(express.json());
@@ -15,7 +14,6 @@ app.post('/api/paypack/cashin', async (req, res) => {
 
     console.log(`Ubusabe bwakiriwe: Inomero ${number}, Amafaranga ${amount} FRW`);
 
-    // Hano niho uzashyira code ya Paypack API niba ushaka ko ihita yishyura nyayo
     return.status(200).json({ 
         success: true, 
         message: "Prompt ya MTN MoMo yoherejwe kuri telefone yawe neza!" 
