@@ -1,75 +1,70 @@
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
-require('dotenv').config();
+const fetch = require('node-fetch'); // Niba ukoresha Node.js 18+, iyi 'node-fetch' ntabwo ari ngombwa, paji iri mu buhanga busanzwe
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
 
-// Check server status
-app.get('/', (req, res) => {
-  res.send('Rwanda Online Deals Backend is Running!');
+// 🔒 UBUBIKO BW'IBICIRO (Ushobora kongeramo ibicuruzwa byawe n'ibiciro byabyo hano)
+const PRODUCTS_DB = {
+  'ITEM_101': { name: 'Vip Ticket', price: 10000 },
+  'ITEM_102': { name: 'Regular Ticket', price: 5000 },
+  'DEFAULT_ITEM': { name: 'Igicuruzwa Gisanzwe', price: 1000 }
+};
+
+// 1. Endpoint yo kugaragaza izina n'igiciro kuri Frontend
+app.get('/api/products/:itemId', (req, res) => {
+  const item = PRODUCTS_DB[req.params.itemId];
+  if (!item) {
+    return res.status(404).json({ success: false, error: 'Igicuruzwa ntikibonetse' });
+  }
+  res.json({ success: true, data: item });
 });
 
-// 1. ENDPOINT YO GUSABA UBWISHYU (Deposit Request)
+// 2. Endpoint yo kwakira ubwishyu no kubusaba PawaPay
 app.post('/api/pay', async (req, res) => {
-  const { phoneNumber, amount, depositId } = req.body;
-
-  if (!phoneNumber || !amount || !depositId) {
-    return res.status(400).json({ error: 'Za data zose (phoneNumber, amount, depositId) zirombeba!' });
-  }
-
   try {
-    const response = await axios.post(
-      `${process.env.PAWAPAY_BASE_URL}/deposits`,
-      {
-        depositId: depositId, // Universal Unique Identifier (UUID)
-        amount: amount.toString(),
-        currency: 'RWF',
-        country: 'RWA',
-        correspondent: 'MTN_MOMO_RWA', // Cyangwa AIRTEL_OAPI_RWA
+    const { phoneNumber, itemId } = req.body;
+
+    // Shaka igiciro nyakuri mu bubiko
+    const product = PRODUCTS_DB[itemId];
+    if (!product) {
+      return res.status(400).json({ success: false, error: 'Igicuruzwa cyatanzwe ntigihari' });
+    }
+
+    const realAmount = product.price;
+
+    // Hamagara PawaPay API
+    const pawapayResponse = await fetch('https://api.pawapay.io/deposit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.PAWAPAY_API_KEY}`
+      },
+      body: JSON.stringify({
         payer: {
           type: 'MSISDN',
-          address: {
-            value: phoneNumber // Urugero: "25078xxxxxxx"
-          }
+          address: { value: phoneNumber }
         },
-        customerTimestamp: new Date().toISOString(),
-        statementDescription: 'RwandaOnlineDeals'
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.PAWAPAY_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    res.status(200).json({ success: true, data: response.data });
-  } catch (error) {
-    console.error('Error initiating deposit:', error.response ? error.response.data : error.message);
-    res.status(500).json({
-      success: false,
-      error: error.response ? error.response.data : 'Server error'
+        amount: String(realAmount),
+        currency: 'RWF'
+      })
     });
+
+    const pawaData = await pawapayResponse.json();
+
+    if (pawapayResponse.ok) {
+      return res.json({ success: true, data: pawaData });
+    } else {
+      return res.status(400).json({ success: false, error: pawaData });
+    }
+
+  } catch (error) {
+    console.error('Server error:', error);
+    return res.status(500).json({ success: false, error: 'Ikosa rya Server' });
   }
 });
 
-// 2. ENDPOINT Y'I PAWAPAY CALLBACK (Ikiraro cya Status)
-app.post('/api/pawapay-callback', (req, res) => {
-  const callbackData = req.body;
-  console.log('--- PAWAPAY CALLBACK RECEIVED ---');
-  console.log(JSON.stringify(callbackData, null, 2));
-
-  // Aha ni ho uzajya ushyira code igenzura niba status == 'COMPLETED'
-  // Ugahita wemeza order muri Firebase Firestore yawe.
-
-  // Buri gihe senda status 200 gukura pawaPay mu gushidikanya
-  res.status(200).send('OK');
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server iri gukora kuri port ${PORT}`));
