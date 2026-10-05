@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors());
@@ -64,7 +63,7 @@ app.post('/api/pay', async (req, res) => {
   }
 });
 
-// 3. Endpoint nshya yo KUGENZURA niba amafaranga yageze kuri PawaPay koko
+// 3. Endpoint yo KUGENZURA status kuri PawaPay
 app.get('/api/check-status/:depositId', async (req, res) => {
   try {
     const { depositId } = req.params;
@@ -78,7 +77,6 @@ app.get('/api/check-status/:depositId', async (req, res) => {
 
     const data = await response.json();
 
-    // Reba niba PawaPay yemeza ko amafaranga yageze ku kigo neza
     if (response.ok && (data.status === 'COMPLETED' || data.status === 'SUCCESSFUL')) {
       return res.json({ success: true, status: 'COMPLETED', data: data });
     } else {
